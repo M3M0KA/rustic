@@ -90,7 +90,7 @@ impl CopyCmd {
         for target in &config.copy.targets {
             let mut merge_logs = Vec::new();
             let mut target_config = RusticConfig::default();
-            target_config.merge_profile(target, &mut merge_logs, Level::Error)?;
+            target_config.merge_profile(target, &mut merge_logs, Level::Error, &mut vec![])?;
             // display logs from merging
             for (level, merge_log) in merge_logs {
                 log!(level, "{merge_log}");

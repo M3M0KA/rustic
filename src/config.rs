@@ -22,6 +22,7 @@ use directories::ProjectDirs;
 use itertools::Itertools;
 use jiff::{Timestamp, Zoned, tz::TimeZone};
 use log::Level;
+use opentelemetry::Context;
 use reqwest::Url;
 use rustic_core::{ConfigOptions, SnapshotGroupCriterion};
 use serde::{Deserialize, Serialize};
@@ -120,7 +121,23 @@ impl RusticConfig {
         profile: &str,
         merge_logs: &mut Vec<(Level, String)>,
         level_missing: Level,
+        profile_stack: &mut Vec<String>,
     ) -> Result<(), FrameworkError> {
+        if profile_stack.iter().any(|p| p.as_str() == profile) {
+            let cycle = profile_stack
+                .iter()
+                .map(String::as_str)
+                .chain(std::iter::once(profile))
+                .join(" -> ");
+
+            return Err(abscissa_core::error::context::Context::new(
+                FrameworkErrorKind::ConfigError,
+                Some(Box::new(std::io::Error::other(format!(
+                    "Circular profile dependency: {cycle}"
+                )))),
+            )
+            .into());
+        };
         let profile_filename = if profile.ends_with(".toml") {
             profile.to_string()
         } else {
@@ -147,9 +164,11 @@ impl RusticConfig {
                 merge_logs.push((Level::Warn, "Option `profile-substitute-env` is given without any profiles to load! Note that this option does NOT apply to the file where it is specified!".to_string()));
             }
             // if "use_profile" is defined in config file, merge the referenced profiles first
+            profile_stack.push(profile.to_string());
             for profile in &config.global.use_profiles.clone() {
-                config.merge_profile(profile, merge_logs, Level::Warn)?;
+                config.merge_profile(profile, merge_logs, Level::Warn, profile_stack)?;
             }
+            let _ = profile_stack.pop();
             self.merge(config);
         } else {
             let paths_string = paths.iter().map(|path| path.display()).join(", ");

@@ -272,10 +272,10 @@ impl Configurable<RusticConfig> for EntryPoint {
 
         // get global options from command line / env and config file
         if config.global.use_profiles.is_empty() {
-            config.merge_profile("rustic", &mut merge_logs, Level::Info)?;
+            config.merge_profile("rustic", &mut merge_logs, Level::Info, &mut vec![])?;
         } else {
             for profile in &config.global.use_profiles.clone() {
-                config.merge_profile(profile, &mut merge_logs, Level::Warn)?;
+                config.merge_profile(profile, &mut merge_logs, Level::Warn, &mut vec![])?;
             }
         }
 
